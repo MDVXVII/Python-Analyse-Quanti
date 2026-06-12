@@ -1,0 +1,71 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Données
+σ = np.array([0.02, 0.04, 0.06, 0.08, 0.10, 0.12])
+C = np.array([0.008, 0.015, 0.021, 0.030, 0.038, 0.043])
+
+# Calcul des moyennes
+σ_moy = np.mean(σ)
+C_moy = np.mean(C)
+print(f"Moyenne σ : {σ_moy:.4f}")
+print(f"Moyenne C : {C_moy:.4f}")
+
+# Calcul de β1
+covariance = np.mean((σ - σ_moy) * (C - C_moy))
+variance   = np.mean((σ - σ_moy) ** 2)
+β1 = covariance / variance
+print(f"Covariance : {covariance:.8f}")
+print(f"Variance  : {variance:.8f}")
+print(f"β1         : {β1:.5f}")
+
+# Calcul de β0
+β0 = C_moy - β1 * σ_moy
+print(f"β0         : {β0:.6f}")
+
+# Prédictions et résidus
+C_predit = β1 * σ + β0          
+ε = C - C_predit
+
+for i in range(len(σ)):
+    print(f"σ={σ[i]:.0%} | C_reel={C[i]:.6f} "
+          f"| C_predit={C_predit[i]:.6f} | ε={ε[i]:+.6f}")
+
+# Calcul du R²
+scr = np.sum(ε ** 2)
+sct = np.sum((C - C_moy) ** 2)
+r2  = 1 - scr / sct
+print(f"r2 = {r2:.6f}")
+
+#  Prédiction nouvelle valeur
+σ_new     = 0.07
+C_pred_new = β1 * σ_new + β0    
+print(f"Prix prédit pour σ=7% : {C_pred_new:.5f}")
+
+# Visualisation 
+fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+axes[0].scatter(σ, C, color="blue", s=80,         
+                zorder=5, label="Données réelles")
+axes[0].plot(σ, C_predit, color="red",           
+             linewidth=2, label=f"Ĉ = {β1:.4f}σ + {β0:.4f}")
+
+for i in range(len(σ)):
+    axes[0].vlines(σ[i], C_predit[i], C[i],
+                   color="green", linestyle="--", alpha=0.7)
+
+axes[0].set_xlabel('Volatilité σ')
+axes[0].set_ylabel('Prix du call C')
+axes[0].set_title(f'Régression (R²={r2:.4f})')
+axes[0].legend()
+axes[0].grid(True, alpha=0.3)
+
+axes[1].bar(range(len(ε)), ε, color='green', alpha=0.7)
+axes[1].axhline(y=0, color='red', linewidth=1)
+axes[1].set_xlabel('Observation')
+axes[1].set_ylabel('Résidu ε')
+axes[1].set_title('Résidus')
+axes[1].grid(True, alpha=0.3)
+
+plt.tight_layout()
+plt.show()
