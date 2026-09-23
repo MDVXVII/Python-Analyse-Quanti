@@ -14,7 +14,9 @@ import pandas as pd
 @dataclass(frozen=True)
 class FrameSchema:
     name: str
-    required: dict[str, str]  # colonne -> famille de type ("str", "float", "date", "datetime", "bool", "int")
+    required: dict[
+        str, str
+    ]  # colonne -> famille de type ("str", "float", "date", "datetime", "bool", "int")
     optional: dict[str, str]
 
     @property
@@ -31,8 +33,13 @@ PRICES = FrameSchema(
         "adj_close": "float",
         "volume": "float",
     },
-    optional={"open": "float", "high": "float", "low": "float", "source": "str",
-              "ingested_at": "datetime"},
+    optional={
+        "open": "float",
+        "high": "float",
+        "low": "float",
+        "source": "str",
+        "ingested_at": "datetime",
+    },
 )
 
 # Faits fondamentaux en format long, bitemporels.
@@ -57,8 +64,8 @@ FACTS = FrameSchema(
         "lag_estimated": "bool",
         "source": "str",
         "accession": "str",
-        "tag": "str",        # tag d'origine (traçabilité)
-        "tag_rank": "int",   # priorité du tag pour le concept (0 = préféré)
+        "tag": "str",  # tag d'origine (traçabilité)
+        "tag_rank": "int",  # priorité du tag pour le concept (0 = préféré)
         "ingested_at": "datetime",
     },
 )
@@ -67,7 +74,7 @@ EVENTS = FrameSchema(
     name="events",
     required={
         "symbol": "str",
-        "event_type": "str",   # earnings_release, earnings_scheduled, agm, ...
+        "event_type": "str",  # earnings_release, earnings_scheduled, agm, ...
         "event_time": "datetime",
         "available_at": "datetime",
     },

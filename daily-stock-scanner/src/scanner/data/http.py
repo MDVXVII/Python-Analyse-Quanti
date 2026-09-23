@@ -39,9 +39,13 @@ SECRET_PARAM_NAMES = frozenset({"api_token", "apikey", "api_key", "token", "key"
 class RateLimiter:
     """Seau à jetons thread-safe : au plus ``rate`` requêtes par seconde en régime établi."""
 
-    def __init__(self, rate_per_sec: float, burst: int = 1,
-                 clock: Callable[[], float] = time.monotonic,
-                 sleep: Callable[[float], None] = time.sleep) -> None:
+    def __init__(
+        self,
+        rate_per_sec: float,
+        burst: int = 1,
+        clock: Callable[[], float] = time.monotonic,
+        sleep: Callable[[float], None] = time.sleep,
+    ) -> None:
         if rate_per_sec <= 0:
             raise ValueError("rate_per_sec doit être > 0")
         self.rate = rate_per_sec
@@ -95,24 +99,33 @@ class CachedResponse:
 class HttpClient:
     """Client GET avec cache disque, rate limiting et relances."""
 
-    def __init__(self, source: str, cache_dir: Path | None, rate_per_sec: float,
-                 headers: Mapping[str, str] | None = None, timeout: float = 30.0,
-                 max_attempts: int = 5, transport: httpx.BaseTransport | None = None,
-                 sleep: Callable[[float], None] = time.sleep) -> None:
+    def __init__(
+        self,
+        source: str,
+        cache_dir: Path | None,
+        rate_per_sec: float,
+        headers: Mapping[str, str] | None = None,
+        timeout: float = 30.0,
+        max_attempts: int = 5,
+        transport: httpx.BaseTransport | None = None,
+        sleep: Callable[[float], None] = time.sleep,
+    ) -> None:
         self.source = source
         self.cache_dir = cache_dir / source if cache_dir else None
         if self.cache_dir:
             self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.limiter = RateLimiter(rate_per_sec, sleep=sleep)
-        self._client = httpx.Client(headers=dict(headers or {}), timeout=timeout,
-                                    transport=transport, follow_redirects=True)
+        self._client = httpx.Client(
+            headers=dict(headers or {}), timeout=timeout, transport=transport, follow_redirects=True
+        )
         self._max_attempts = max_attempts
         self._sleep = sleep
 
     # -- cache ---------------------------------------------------------------------------
     def _cache_key(self, url: str, params: Mapping[str, Any] | None) -> str:
-        public = {k: v for k, v in sorted((params or {}).items())
-                  if k.lower() not in SECRET_PARAM_NAMES}
+        public = {
+            k: v for k, v in sorted((params or {}).items()) if k.lower() not in SECRET_PARAM_NAMES
+        }
         raw = json.dumps({"url": url, "params": public}, sort_keys=True, default=str)
         return hashlib.sha256(raw.encode()).hexdigest()
 
@@ -134,13 +147,16 @@ class HttpClient:
             return
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp = path.with_suffix(".tmp")
-        tmp.write_text(json.dumps({"status": resp.status, "text": resp.text,
-                                   "fetched_at": resp.fetched_at}), encoding="utf-8")
+        tmp.write_text(
+            json.dumps({"status": resp.status, "text": resp.text, "fetched_at": resp.fetched_at}),
+            encoding="utf-8",
+        )
         tmp.replace(path)
 
     # -- requêtes ------------------------------------------------------------------------
-    def get(self, url: str, params: Mapping[str, Any] | None = None,
-            ttl_hours: float | None = None) -> CachedResponse:
+    def get(
+        self, url: str, params: Mapping[str, Any] | None = None, ttl_hours: float | None = None
+    ) -> CachedResponse:
         """GET avec cache (si ``ttl_hours``), rate limiting et relances."""
         key = self._cache_key(url, params)
         cached = self._read_cache(key, ttl_hours)
@@ -150,22 +166,43 @@ class HttpClient:
 
         def _before_sleep(state: RetryCallState) -> None:
             exc = state.outcome.exception() if state.outcome else None
-            log.warning("relance HTTP", extra={"ctx": {
-                "source": self.source, "url": url, "attempt": state.attempt_number,
-                "error": str(exc)[:200]}})
+            log.warning(
+                "relance HTTP",
+                extra={
+                    "ctx": {
+                        "source": self.source,
+                        "url": url,
+                        "attempt": state.attempt_number,
+                        "error": str(exc)[:200],
+                    }
+                },
+            )
 
-        @retry(retry=retry_if_exception(_is_retryable),
-               wait=wait_exponential(multiplier=1, min=1, max=30),
-               stop=stop_after_attempt(self._max_attempts), reraise=True,
-               before_sleep=_before_sleep, sleep=self._sleep)
+        @retry(
+            retry=retry_if_exception(_is_retryable),
+            wait=wait_exponential(multiplier=1, min=1, max=30),
+            stop=stop_after_attempt(self._max_attempts),
+            reraise=True,
+            before_sleep=_before_sleep,
+            sleep=self._sleep,
+        )
         def _do() -> CachedResponse:
             self.limiter.acquire()
             t0 = time.perf_counter()
             r = self._client.get(url, params=dict(params or {}))
             ms = round((time.perf_counter() - t0) * 1000)
-            log.info("HTTP GET", extra={"ctx": {"source": self.source, "url": url,
-                                                "params": _redact_params(params),
-                                                "status": r.status_code, "ms": ms}})
+            log.info(
+                "HTTP GET",
+                extra={
+                    "ctx": {
+                        "source": self.source,
+                        "url": url,
+                        "params": _redact_params(params),
+                        "status": r.status_code,
+                        "ms": ms,
+                    }
+                },
+            )
             if r.status_code == 429:
                 retry_after = r.headers.get("Retry-After")
                 if retry_after and retry_after.isdigit():

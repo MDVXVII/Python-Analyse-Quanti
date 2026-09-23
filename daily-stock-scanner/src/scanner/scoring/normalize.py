@@ -22,10 +22,11 @@ def _pct_in_groups(
     values: pd.Series, groups: pd.Series, min_size: int
 ) -> tuple[pd.Series, pd.Series]:
     """Percentile (rang moyen - 0,5) / n dans chaque groupe assez grand ; NaN ailleurs."""
-    df = pd.DataFrame({"v": values, "g": groups.astype("string").fillna("?")})
+    df = pd.DataFrame({"v": values, "g": groups.astype("string").fillna("?").astype("category")})
     df = df[df["v"].notna()]
-    n = df.groupby("g")["v"].transform("count")
-    rank = df.groupby("g")["v"].rank(method="average")
+    grouped = df.groupby("g", observed=True)["v"]
+    n = grouped.transform("count")
+    rank = grouped.rank(method="average")
     pct = ((rank - 0.5) / n).where(n >= min_size)
     return pct.reindex(values.index), n.reindex(values.index)
 

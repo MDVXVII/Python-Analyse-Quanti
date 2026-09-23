@@ -32,9 +32,9 @@ class SyntheticSpec:
     start: date = date(2014, 1, 1)
     end: date = date(2026, 9, 22)
     seed: int = 7
-    quality_premium: float = 0.06      # rendement annuel par écart-type de qualité
-    drift_sd_daily: float = 0.0004     # écart-type stationnaire de la dérive persistante
-    drift_phi: float = 0.995           # persistance quotidienne de la dérive
+    quality_premium: float = 0.06  # rendement annuel par écart-type de qualité
+    drift_sd_daily: float = 0.0004  # écart-type stationnaire de la dérive persistante
+    drift_phi: float = 0.995  # persistance quotidienne de la dérive
     delisting_rate: float = 0.08
     late_listing_rate: float = 0.08
     restatement_rate: float = 0.05
@@ -44,11 +44,12 @@ class SyntheticSpec:
 @dataclass
 class SyntheticMarket:
     data: MarketData
-    quality: pd.DataFrame     # vérité terrain : q_i par trimestre (index = fin de trimestre)
+    quality: pd.DataFrame  # vérité terrain : q_i par trimestre (index = fin de trimestre)
     spec: SyntheticSpec
 
 
-def generate(spec: SyntheticSpec = SyntheticSpec()) -> SyntheticMarket:
+def generate(spec: SyntheticSpec | None = None) -> SyntheticMarket:
+    spec = spec or SyntheticSpec()
     rng = np.random.default_rng(spec.seed)
     dates = pd.bdate_range(spec.start, spec.end)
     n, t = spec.n_securities, len(dates)
@@ -87,13 +88,19 @@ def generate(spec: SyntheticSpec = SyntheticSpec()) -> SyntheticMarket:
     drift = np.zeros((t, n))
     for k in range(1, t):
         drift[k] = spec.drift_phi * drift[k - 1] + innov_sd * rng.standard_normal(n)
-    rets = (market[:, None] * beta[None, :] + sector_f[:, sector_idx]
-            + spec.quality_premium / 252 * q_daily + drift
-            + sigma[None, :] * rng.standard_normal((t, n)))
+    rets = (
+        market[:, None] * beta[None, :]
+        + sector_f[:, sector_idx]
+        + spec.quality_premium / 252 * q_daily
+        + drift
+        + sigma[None, :] * rng.standard_normal((t, n))
+    )
 
     p0 = rng.uniform(15, 150, size=n)
     close = p0[None, :] * np.exp(np.cumsum(rets, axis=0))
-    live = (np.arange(t)[:, None] >= start_idx[None, :]) & (np.arange(t)[:, None] < end_idx[None, :])
+    live = (np.arange(t)[:, None] >= start_idx[None, :]) & (
+        np.arange(t)[:, None] < end_idx[None, :]
+    )
     close = np.where(live, close, np.nan)
     open_ = close * (1 + rng.normal(0, 0.003, size=(t, n)))
     high = np.maximum(close, open_) * (1 + np.abs(rng.normal(0, 0.006, size=(t, n))))
@@ -104,13 +111,19 @@ def generate(spec: SyntheticSpec = SyntheticSpec()) -> SyntheticMarket:
     volume = (adv_dollars / p0)[None, :] * np.exp(rng.normal(0, 0.35, size=(t, n)))
     volume = np.where(live, volume, np.nan)
 
-    prices = pd.DataFrame({
-        "symbol": np.repeat(np.array(symbols)[None, :], t, axis=0).ravel(),
-        "date": np.repeat(dates.to_numpy()[:, None], n, axis=1).ravel(),
-        "open": open_.ravel(), "high": high.ravel(), "low": low.ravel(),
-        "close": close.ravel(), "adj_close": close.ravel(), "volume": volume.ravel(),
-        "source": "synthetic",
-    }).dropna(subset=["close"])
+    prices = pd.DataFrame(
+        {
+            "symbol": np.repeat(np.array(symbols)[None, :], t, axis=0).ravel(),
+            "date": np.repeat(dates.to_numpy()[:, None], n, axis=1).ravel(),
+            "open": open_.ravel(),
+            "high": high.ravel(),
+            "low": low.ravel(),
+            "close": close.ravel(),
+            "adj_close": close.ravel(),
+            "volume": volume.ravel(),
+            "source": "synthetic",
+        }
+    ).dropna(subset=["close"])
     prices = conform(prices, PRICES)
 
     # --------------------------------------------------------- états financiers et événements
@@ -145,18 +158,36 @@ def generate(spec: SyntheticSpec = SyntheticSpec()) -> SyntheticMarket:
             accrual = (0.004 - 0.004 * qi) * assets + rng.normal(0, 0.002) * assets
             cfo = ni + dep - accrual
             capex = assets * 0.012
-            flows = {"revenue": revenue, "cogs": revenue - gp, "gross_profit": gp, "sga": sga,
-                     "ebit": ebit, "pretax_income": pretax, "income_tax": tax, "net_income": ni,
-                     "interest_expense": interest, "depreciation": dep, "cfo": cfo,
-                     "capex": capex}
+            flows = {
+                "revenue": revenue,
+                "cogs": revenue - gp,
+                "gross_profit": gp,
+                "sga": sga,
+                "ebit": ebit,
+                "pretax_income": pretax,
+                "income_tax": tax,
+                "net_income": ni,
+                "interest_expense": interest,
+                "depreciation": dep,
+                "cfo": cfo,
+                "capex": capex,
+            }
             cl = assets * 0.20
-            stocks = {"total_assets": assets, "current_assets": assets * 0.35,
-                      "current_liabilities": cl, "total_liabilities": debt + cl,
-                      "total_equity": assets - debt - cl, "cash": assets * 0.08,
-                      "receivables": assets * (0.12 - 0.01 * qi), "inventory": assets * 0.06,
-                      "ppe_net": assets * 0.30, "long_term_debt": debt * 0.8,
-                      "short_term_debt": debt * 0.2, "retained_earnings": assets * 0.25,
-                      "shares_outstanding": shares}
+            stocks = {
+                "total_assets": assets,
+                "current_assets": assets * 0.35,
+                "current_liabilities": cl,
+                "total_liabilities": debt + cl,
+                "total_equity": assets - debt - cl,
+                "cash": assets * 0.08,
+                "receivables": assets * (0.12 - 0.01 * qi),
+                "inventory": assets * 0.06,
+                "ppe_net": assets * 0.30,
+                "long_term_debt": debt * 0.8,
+                "short_term_debt": debt * 0.2,
+                "retained_earnings": assets * 0.25,
+                "shares_outstanding": shares,
+            }
             is_fy = qe.month == 12
             lag = int(rng.integers(50, 76) if is_fy else rng.integers(25, 46))
             filed = (qe + pd.Timedelta(days=lag)).date()
@@ -173,8 +204,20 @@ def generate(spec: SyntheticSpec = SyntheticSpec()) -> SyntheticMarket:
                     )
             eps = ni / shares
             if not is_fy:
-                fact_rows.append(_fact(sym, "eps_diluted", eps, q_start, qe, "Q", form, avail, accn,
-                                       f"{currency[i]}/shares"))
+                fact_rows.append(
+                    _fact(
+                        sym,
+                        "eps_diluted",
+                        eps,
+                        q_start,
+                        qe,
+                        "Q",
+                        form,
+                        avail,
+                        accn,
+                        f"{currency[i]}/shares",
+                    )
+                )
             for name, v in stocks.items():
                 unit = "shares" if name == "shares_outstanding" else currency[i]
                 fact_rows.append(_fact(sym, name, v, None, qe, None, form, avail, accn, unit))
@@ -185,38 +228,101 @@ def generate(spec: SyntheticSpec = SyntheticSpec()) -> SyntheticMarket:
                         _fact(sym, name, v, fy_start, qe, "FY", form, avail, accn, currency[i])
                     )
                 fy_eps = fy_acc["net_income"] / shares
-                fact_rows.append(_fact(sym, "eps_diluted", fy_eps, fy_start, qe, "FY", form, avail,
-                                       accn, f"{currency[i]}/shares"))
+                fact_rows.append(
+                    _fact(
+                        sym,
+                        "eps_diluted",
+                        fy_eps,
+                        fy_start,
+                        qe,
+                        "FY",
+                        form,
+                        avail,
+                        accn,
+                        f"{currency[i]}/shares",
+                    )
+                )
             if is_fy:
                 fy_acc, fy_count = {}, 0
             # Retraitement publié au trimestre suivant (nouvelle version, disponible plus tard).
             if not is_fy and rng.random() < spec.restatement_rate:
                 later = avail + timedelta(days=91)
-                fact_rows.append(_fact(sym, "revenue", revenue * 1.05, q_start, qe, "Q", "10-Q/A",
-                                       later, accn + "-R", currency[i]))
-            release = datetime.combine(filed - timedelta(days=3), datetime.min.time(),
-                                       tzinfo=UTC) + timedelta(hours=21)
-            event_rows.append({"symbol": sym, "event_type": "earnings_release",
-                               "event_time": release, "available_at": release,
-                               "source": "synthetic", "detail": form})
+                fact_rows.append(
+                    _fact(
+                        sym,
+                        "revenue",
+                        revenue * 1.05,
+                        q_start,
+                        qe,
+                        "Q",
+                        "10-Q/A",
+                        later,
+                        accn + "-R",
+                        currency[i],
+                    )
+                )
+            release = datetime.combine(
+                filed - timedelta(days=3), datetime.min.time(), tzinfo=UTC
+            ) + timedelta(hours=21)
+            event_rows.append(
+                {
+                    "symbol": sym,
+                    "event_type": "earnings_release",
+                    "event_time": release,
+                    "available_at": release,
+                    "source": "synthetic",
+                    "detail": form,
+                }
+            )
 
     facts = conform(pd.DataFrame(fact_rows), FACTS)
     events = conform(pd.DataFrame(event_rows), EVENTS)
-    securities = conform(pd.DataFrame({
-        "symbol": symbols,
-        "name": [f"Société synthétique {i:03d}" for i in range(n)],
-        "country": country, "currency": currency, "sector": sectors,
-        "security_type": "EQUITY",
-        "listed_from": [dates[start_idx[i]] for i in range(n)],
-        "delisted_on": [dates[end_idx[i]] if end_idx[i] < t else pd.NaT for i in range(n)],
-        "shares_outstanding": shares0, "market_cap": mcap0, "source": "synthetic",
-    }), SECURITIES)
+    securities = conform(
+        pd.DataFrame(
+            {
+                "symbol": symbols,
+                "name": [f"Société synthétique {i:03d}" for i in range(n)],
+                "country": country,
+                "currency": currency,
+                "sector": sectors,
+                "security_type": "EQUITY",
+                "listed_from": [dates[start_idx[i]] for i in range(n)],
+                "delisted_on": [dates[end_idx[i]] if end_idx[i] < t else pd.NaT for i in range(n)],
+                "shares_outstanding": shares0,
+                "market_cap": mcap0,
+                "source": "synthetic",
+            }
+        ),
+        SECURITIES,
+    )
     return SyntheticMarket(MarketData(prices, facts, events, securities), q_by_quarter, spec)
 
 
-def _fact(symbol: str, concept: str, value: float, start: pd.Timestamp | None, end: pd.Timestamp,
-          fp: str | None, form: str, avail: datetime, accn: str, unit: str) -> dict[str, object]:
-    return {"symbol": symbol, "concept": concept, "value": float(value), "period_start": start,
-            "period_end": end, "fiscal_period": fp, "form": form, "unit": unit,
-            "available_at": avail, "lag_estimated": False, "source": "synthetic",
-            "accession": accn, "tag": f"synthetic:{concept}", "tag_rank": 0}
+def _fact(
+    symbol: str,
+    concept: str,
+    value: float,
+    start: pd.Timestamp | None,
+    end: pd.Timestamp,
+    fp: str | None,
+    form: str,
+    avail: datetime,
+    accn: str,
+    unit: str,
+) -> dict[str, object]:
+    return {
+        "symbol": symbol,
+        "concept": concept,
+        "value": float(value),
+        "period_start": start,
+        "period_end": end,
+        "fiscal_period": fp,
+        "form": form,
+        "unit": unit,
+        "available_at": avail,
+        "lag_estimated": False,
+        "source": "synthetic",
+        "accession": accn,
+        "tag": f"synthetic:{concept}",
+        "tag_rank": 0,
+    }

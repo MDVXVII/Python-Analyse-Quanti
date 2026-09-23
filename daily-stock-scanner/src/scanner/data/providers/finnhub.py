@@ -26,14 +26,16 @@ def calendar_to_events(payload: dict[str, Any], observed_at: datetime) -> pd.Dat
         if not e.get("symbol") or not e.get("date"):
             continue
         hour = (e.get("hour") or "").lower()  # bmo / amc / dmh
-        rows.append({
-            "symbol": f"{str(e['symbol']).replace('.', '-')}.US",
-            "event_type": "earnings_scheduled",
-            "event_time": pd.Timestamp(e["date"], tz="UTC"),
-            "available_at": observed_at,
-            "source": "finnhub",
-            "detail": hour or None,
-        })
+        rows.append(
+            {
+                "symbol": f"{str(e['symbol']).replace('.', '-')}.US",
+                "event_type": "earnings_scheduled",
+                "event_time": pd.Timestamp(e["date"], tz="UTC"),
+                "available_at": observed_at,
+                "source": "finnhub",
+                "detail": hour or None,
+            }
+        )
     if not rows:
         return conform(pd.DataFrame(columns=EVENTS.columns), EVENTS)
     return conform(pd.DataFrame(rows), EVENTS)
@@ -42,8 +44,14 @@ def calendar_to_events(payload: dict[str, Any], observed_at: datetime) -> pd.Dat
 class FinnhubProvider:
     name = "finnhub"
 
-    def __init__(self, api_key: str | None, cache_dir: Path | None, rate_per_sec: float = 0.9,
-                 cache_ttl_hours: float = 12, client: HttpClient | None = None) -> None:
+    def __init__(
+        self,
+        api_key: str | None,
+        cache_dir: Path | None,
+        rate_per_sec: float = 0.9,
+        cache_ttl_hours: float = 12,
+        client: HttpClient | None = None,
+    ) -> None:
         if client is None:
             if not api_key:
                 raise ProviderError("FINNHUB_API_KEY manquante")
@@ -53,8 +61,9 @@ class FinnhubProvider:
         self.ttl = cache_ttl_hours
 
     def earnings_calendar(self, start: date, end: date) -> pd.DataFrame:
-        payload = self.http.get(f"{BASE}/calendar/earnings",
-                                params={"from": start.isoformat(), "to": end.isoformat(),
-                                        "token": self.key},
-                                ttl_hours=self.ttl).json()
+        payload = self.http.get(
+            f"{BASE}/calendar/earnings",
+            params={"from": start.isoformat(), "to": end.isoformat(), "token": self.key},
+            ttl_hours=self.ttl,
+        ).json()
         return calendar_to_events(payload, datetime.now(UTC))

@@ -47,9 +47,10 @@ packages = ["src/scanner"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q --strict-markers"
+addopts = "-q --strict-markers -m \"not network\""
 markers = [
     "network: test qui nécessite un accès réseau réel (exclu par défaut en CI)",
+    "slow: test de bout en bout long (protocole de validation complet)",
 ]
 filterwarnings = ["ignore::DeprecationWarning:yfinance.*"]
 
@@ -71,6 +72,7 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["PD", "B011"]
+"src/scanner/cli.py" = ["B008"]  # motif standard de Typer
 
 [tool.mypy]
 python_version = "3.12"

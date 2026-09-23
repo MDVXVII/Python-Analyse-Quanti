@@ -38,8 +38,60 @@ SUBMISSIONS_PAGE_URL = "https://data.sec.gov/submissions/{name}"
 
 _EASTERN = ZoneInfo("America/New_York")
 _US_STATES = frozenset(
-    "AL AK AZ AR CA CO CT DE DC FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH "
-    "NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY PR".split()
+    [
+        "AL",
+        "AK",
+        "AZ",
+        "AR",
+        "CA",
+        "CO",
+        "CT",
+        "DE",
+        "DC",
+        "FL",
+        "GA",
+        "HI",
+        "ID",
+        "IL",
+        "IN",
+        "IA",
+        "KS",
+        "KY",
+        "LA",
+        "ME",
+        "MD",
+        "MA",
+        "MI",
+        "MN",
+        "MS",
+        "MO",
+        "MT",
+        "NE",
+        "NV",
+        "NH",
+        "NJ",
+        "NM",
+        "NY",
+        "NC",
+        "ND",
+        "OH",
+        "OK",
+        "OR",
+        "PA",
+        "RI",
+        "SC",
+        "SD",
+        "TN",
+        "TX",
+        "UT",
+        "VT",
+        "VA",
+        "WA",
+        "WV",
+        "WI",
+        "WY",
+        "PR",
+    ]
 )
 _ANNUAL_FORMS = ("10-K", "10-K/A", "20-F", "20-F/A", "40-F", "40-F/A")
 _QUARTERLY_FORMS = ("10-Q", "10-Q/A", "6-K")
@@ -73,8 +125,9 @@ def _fiscal_period_from_duration(start: str | None, end: str) -> str | None:
     return "OTHER"
 
 
-def parse_companyfacts(payload: dict[str, Any], symbol: str,
-                       acceptance_by_accn: dict[str, datetime] | None = None) -> pd.DataFrame:
+def parse_companyfacts(
+    payload: dict[str, Any], symbol: str, acceptance_by_accn: dict[str, datetime] | None = None
+) -> pd.DataFrame:
     """Convertit une réponse ``companyfacts`` en faits canoniques (schéma ``FACTS``).
 
     ``acceptance_by_accn`` (optionnel) : horodatages d'acceptation issus de ``submissions``,
@@ -111,24 +164,27 @@ def parse_companyfacts(payload: dict[str, Any], symbol: str,
                     value = float(it["val"])
                     if concept.absolute:
                         value = abs(value)
-                    avail = filing_available_at(date.fromisoformat(filed),
-                                                acceptance_by_accn.get(accn or ""))
-                    rows.append({
-                        "symbol": symbol,
-                        "concept": concept_name,
-                        "value": value,
-                        "period_start": it.get("start"),
-                        "period_end": end,
-                        "fiscal_period": _fiscal_period_from_duration(it.get("start"), end),
-                        "form": it.get("form"),
-                        "unit": unit,
-                        "available_at": avail,
-                        "lag_estimated": False,
-                        "source": "sec_edgar",
-                        "accession": accn,
-                        "tag": f"{taxonomy}:{tag}",
-                        "tag_rank": rank,
-                    })
+                    avail = filing_available_at(
+                        date.fromisoformat(filed), acceptance_by_accn.get(accn or "")
+                    )
+                    rows.append(
+                        {
+                            "symbol": symbol,
+                            "concept": concept_name,
+                            "value": value,
+                            "period_start": it.get("start"),
+                            "period_end": end,
+                            "fiscal_period": _fiscal_period_from_duration(it.get("start"), end),
+                            "form": it.get("form"),
+                            "unit": unit,
+                            "available_at": avail,
+                            "lag_estimated": False,
+                            "source": "sec_edgar",
+                            "accession": accn,
+                            "tag": f"{taxonomy}:{tag}",
+                            "tag_rank": rank,
+                        }
+                    )
     if not rows:
         return conform(pd.DataFrame(columns=FACTS.columns), FACTS)
     df = conform(pd.DataFrame(rows), FACTS)
@@ -149,8 +205,15 @@ def _unit_ok(concept_name: str, nature: str, unit: str) -> bool:
 def parse_submissions_filings(payload: dict[str, Any]) -> pd.DataFrame:
     """Table des dépôts (bloc ``filings.recent`` ou page d'archive)."""
     block = payload.get("filings", {}).get("recent", payload)
-    keys = ["accessionNumber", "filingDate", "acceptanceDateTime", "form", "items",
-            "reportDate", "primaryDocument"]
+    keys = [
+        "accessionNumber",
+        "filingDate",
+        "acceptanceDateTime",
+        "form",
+        "items",
+        "reportDate",
+        "primaryDocument",
+    ]
     n = len(block.get("accessionNumber", []))
     data = {k: block.get(k, [None] * n) for k in keys}
     df = pd.DataFrame(data)
@@ -162,14 +225,16 @@ def earnings_events(filings: pd.DataFrame, symbol: str) -> pd.DataFrame:
     """Publications de résultats : 8-K comportant l'item 2.02."""
     mask = filings["form"].isin(["8-K", "8-K/A"]) & filings["items"].fillna("").str.contains("2.02")
     sub = filings.loc[mask]
-    ev = pd.DataFrame({
-        "symbol": symbol,
-        "event_type": "earnings_release",
-        "event_time": sub["acceptance_utc"],
-        "available_at": sub["acceptance_utc"],
-        "source": "sec_edgar",
-        "detail": sub["accessionNumber"],
-    })
+    ev = pd.DataFrame(
+        {
+            "symbol": symbol,
+            "event_type": "earnings_release",
+            "event_time": sub["acceptance_utc"],
+            "available_at": sub["acceptance_utc"],
+            "source": "sec_edgar",
+            "detail": sub["accessionNumber"],
+        }
+    )
     return conform(ev, EVENTS)
 
 
@@ -178,15 +243,25 @@ class SecEdgarProvider:
 
     name = "sec_edgar"
 
-    def __init__(self, user_agent: str | None, cache_dir: Path | None, rate_per_sec: float = 8,
-                 cache_ttl_hours: float = 20, client: HttpClient | None = None) -> None:
+    def __init__(
+        self,
+        user_agent: str | None,
+        cache_dir: Path | None,
+        rate_per_sec: float = 8,
+        cache_ttl_hours: float = 20,
+        client: HttpClient | None = None,
+    ) -> None:
         if client is None:
             if not user_agent or "@" not in user_agent:
                 raise ProviderError(
-                    "SEC_USER_AGENT manquant ou invalide : la SEC exige « Nom Prénom email@domaine »")
-            client = HttpClient("sec_edgar", cache_dir, rate_per_sec,
-                                headers={"User-Agent": user_agent,
-                                         "Accept-Encoding": "gzip, deflate"})
+                    "SEC_USER_AGENT manquant ou invalide : la SEC exige « Nom email@domaine »"
+                )
+            client = HttpClient(
+                "sec_edgar",
+                cache_dir,
+                rate_per_sec,
+                headers={"User-Agent": user_agent, "Accept-Encoding": "gzip, deflate"},
+            )
         self.http = client
         self.ttl = cache_ttl_hours
         self._cik_map: dict[str, int] | None = None
@@ -195,8 +270,10 @@ class SecEdgarProvider:
     def cik_map(self) -> dict[str, int]:
         if self._cik_map is None:
             payload = self.http.get(TICKERS_URL, ttl_hours=24 * 7).json()
-            self._cik_map = {str(v["ticker"]).upper().replace(".", "-"): int(v["cik_str"])
-                             for v in payload.values()}
+            self._cik_map = {
+                str(v["ticker"]).upper().replace(".", "-"): int(v["cik_str"])
+                for v in payload.values()
+            }
         return self._cik_map
 
     def cik_for(self, symbol: str) -> int:
@@ -207,13 +284,16 @@ class SecEdgarProvider:
         return cik
 
     # -- dépôts -------------------------------------------------------------------------
-    def submissions(self, cik: int, include_archive: bool = True) -> tuple[dict[str, Any], pd.DataFrame]:
+    def submissions(
+        self, cik: int, include_archive: bool = True
+    ) -> tuple[dict[str, Any], pd.DataFrame]:
         payload = self.http.get(SUBMISSIONS_URL.format(cik=cik), ttl_hours=self.ttl).json()
         frames = [parse_submissions_filings(payload)]
         if include_archive:
             for f in payload.get("filings", {}).get("files", []):
-                page = self.http.get(SUBMISSIONS_PAGE_URL.format(name=f["name"]),
-                                     ttl_hours=24 * 30).json()
+                page = self.http.get(
+                    SUBMISSIONS_PAGE_URL.format(name=f["name"]), ttl_hours=24 * 30
+                ).json()
                 frames.append(parse_submissions_filings(page))
         return payload, pd.concat(frames, ignore_index=True)
 

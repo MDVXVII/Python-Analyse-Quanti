@@ -14,7 +14,9 @@ Principe (ARCHITECTURE.md §6) :
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -184,8 +186,8 @@ def top_contributors(scores: BookScores, symbol: str, k: int = 3) -> list[tuple[
 def changes_vs_previous(
     current: pd.DataFrame,
     previous: pd.DataFrame | None,
-    fam_now: dict[str, pd.DataFrame],
-    fam_prev: dict[str, pd.DataFrame] | None,
+    fam_now: Mapping[Any, pd.DataFrame],
+    fam_prev: Mapping[Any, pd.DataFrame] | None,
 ) -> pd.DataFrame:
     """Entrées et sorties du top long, attribuées à la famille dont le score a le plus bougé."""
     cols = ["book", "change", "symbol", "cause"]

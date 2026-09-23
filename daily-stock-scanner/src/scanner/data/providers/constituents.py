@@ -70,7 +70,8 @@ class WikipediaConstituents:
         url = WIKIPEDIA_PAGES.get(index_id)
         if url is None:
             raise ProviderError(f"pas de page Wikipédia fiable pour {index_id}")
-        r = httpx.get(url, headers={"User-Agent": self.user_agent}, timeout=30,
-                      follow_redirects=True)
+        r = httpx.get(
+            url, headers={"User-Agent": self.user_agent}, timeout=30, follow_redirects=True
+        )
         r.raise_for_status()
         return parse_wikipedia_table(r.text)

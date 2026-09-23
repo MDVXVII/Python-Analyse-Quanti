@@ -34,7 +34,7 @@ class PitView:
 
     # -- prix ----------------------------------------------------------------------------
     def panel(self, column: str = "adj_close", lookback: int | None = None) -> pd.DataFrame:
-        """Panel (dates x symboles) jusqu'à la dernière clôture visible, ``lookback`` séances max."""
+        """Panel (dates x symboles) jusqu'à la dernière clôture visible (``lookback`` séances)."""
         key = f"panel:{column}"
         if key not in self._cache:
             full = self._data.panel(column)
@@ -49,7 +49,7 @@ class PitView:
     # -- fondamentaux et événements -------------------------------------------------------
     def facts(self) -> pd.DataFrame:
         if "facts" not in self._cache:
-            f = self._data.facts
+            f = self._data.slim_facts() if not self._data.facts.empty else self._data.facts
             self._cache["facts"] = f.loc[f["available_at"] <= self.as_of_ts] if not f.empty else f
         return self._cache["facts"]
 

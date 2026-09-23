@@ -1,0 +1,105 @@
+name: scanner-daily
+
+# Exécution quotidienne avant l'ouverture européenne.
+# 05:00 UTC = 07:00 à Paris en été, 06:00 en hiver (ouverture à 09:00) : marge de 2 h
+# car les crons GitHub sont « best effort » (retards de 5 à 30 min courants).
+# Attention : un workflow planifié ne s'exécute que depuis la branche par défaut (main).
+on:
+  schedule:
+    - cron: "0 5 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "Date d'exécution AAAA-MM-JJ (vide = aujourd'hui)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write   # publication de l'empreinte quotidienne du journal (commitments/)
+
+concurrency:
+  group: scanner-daily
+  cancel-in-progress: false
+
+defaults:
+  run:
+    working-directory: daily-stock-scanner
+
+jobs:
+  daily:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
+      EODHD_API_KEY: ${{ secrets.EODHD_API_KEY }}
+      FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
+      SMTP_HOST: ${{ secrets.SMTP_HOST }}
+      SMTP_USER: ${{ secrets.SMTP_USER }}
+      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+      REPORT_TO: ${{ secrets.REPORT_TO }}
+      SCANNER_DATA_KEY: ${{ secrets.SCANNER_DATA_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: daily-stock-scanner/pyproject.toml
+      - name: Installation
+        run: python -m pip install --upgrade pip && pip install -e .
+
+      - name: Vérification des secrets indispensables
+        run: |
+          test -n "$SEC_USER_AGENT" || { echo "::error::secret SEC_USER_AGENT manquant (« Nom email »)"; exit 1; }
+          test -n "$SCANNER_DATA_KEY" || { echo "::error::secret SCANNER_DATA_KEY manquant (chiffrement des données)"; exit 1; }
+
+      # Les données (prix, faits, rapports, journal) sont conservées dans le cache du dépôt,
+      # CHIFFRÉES : le dépôt est public et les données de certains fournisseurs sont sous licence.
+      - name: Restauration des données chiffrées
+        uses: actions/cache/restore@v4
+        with:
+          path: daily-stock-scanner/data.tar.enc
+          key: scanner-data-${{ github.run_id }}
+          restore-keys: scanner-data-
+      - name: Déchiffrement
+        run: |
+          if [ -f data.tar.enc ]; then
+            openssl enc -d -aes-256-cbc -pbkdf2 -pass env:SCANNER_DATA_KEY -in data.tar.enc | tar -x
+          elif [ -f journal-archive/journal.jsonl.enc ]; then
+            echo "::warning::cache absent : historique rechargé, journal restauré depuis l'archive chiffrée"
+            mkdir -p data/journal
+            openssl enc -d -aes-256-cbc -pbkdf2 -pass env:SCANNER_DATA_KEY \
+              -in journal-archive/journal.jsonl.enc -out data/journal/journal.jsonl
+          fi
+
+      - name: Exécution du scanner
+        env:
+          RUN_DATE: ${{ inputs.date }}   # passé par variable (pas d'interpolation dans le script)
+        run: |
+          if [ -n "$RUN_DATE" ]; then scanner run --date "$RUN_DATE"; else scanner run; fi
+
+      - name: Chiffrement et sauvegarde des données
+        if: always()
+        run: |
+          if [ -d data ]; then
+            tar -c --exclude=data/cache data | openssl enc -aes-256-cbc -pbkdf2 -salt -pass env:SCANNER_DATA_KEY -out data.tar.enc
+          fi
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: daily-stock-scanner/data.tar.enc
+          key: scanner-data-${{ github.run_id }}
+
+      - name: Publication de l'empreinte du journal et de l'archive chiffrée
+        run: |
+          mkdir -p journal-archive
+          if [ -f data/journal/journal.jsonl ]; then
+            openssl enc -aes-256-cbc -pbkdf2 -salt -pass env:SCANNER_DATA_KEY \
+              -in data/journal/journal.jsonl -out journal-archive/journal.jsonl.enc
+          fi
+          git config user.name "scanner-bot"
+          git config user.email "scanner-bot@users.noreply.github.com"
+          git add commitments journal-archive
+          if git diff --cached --quiet; then echo "rien à publier"; exit 0; fi
+          git commit -m "journal : empreinte du $(date -u +%Y-%m-%d)"
+          git push

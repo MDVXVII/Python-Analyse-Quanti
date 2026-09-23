@@ -11,8 +11,9 @@ def fx_symbol(currency: str) -> str:
     return f"{currency.upper()}USD.FX"
 
 
-def fx_to_usd(view: PitView, fallback: dict[str, float],
-              currencies: list[str] | None = None) -> tuple[dict[str, float], list[str]]:
+def fx_to_usd(
+    view: PitView, fallback: dict[str, float], currencies: list[str] | None = None
+) -> tuple[dict[str, float], list[str]]:
     """Taux ``1 devise = x USD`` à ``as_of`` et liste des devises servies par le repli."""
     close = view.panel("close")
     currencies = currencies or list(fallback)

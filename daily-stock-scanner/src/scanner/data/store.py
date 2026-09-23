@@ -51,6 +51,20 @@ def _merge(existing: pd.DataFrame | None, new: pd.DataFrame, keys: list[str]) ->
     return merged.drop_duplicates(subset=keys, keep="last").reset_index(drop=True)
 
 
+SLIM_FACT_COLUMNS = [
+    "symbol",
+    "concept",
+    "value",
+    "period_start",
+    "period_end",
+    "fiscal_period",
+    "available_at",
+    "tag_rank",
+    "unit",
+    "lag_estimated",
+]
+
+
 @dataclass
 class MarketData:
     """Ensemble de données chargé en mémoire, consommé via :class:`scanner.data.pit.PitView`."""
@@ -67,11 +81,28 @@ class MarketData:
             if self.prices.empty:
                 self._panels[column] = pd.DataFrame()
             else:
-                p = self.prices.pivot_table(index="date", columns="symbol", values=column,
-                                            aggfunc="last")
+                p = self.prices.pivot_table(
+                    index="date", columns="symbol", values=column, aggfunc="last"
+                )
                 p.index = pd.DatetimeIndex(p.index)
                 self._panels[column] = p.sort_index()
         return self._panels[column]
+
+    def slim_facts(self) -> pd.DataFrame:
+        """Faits réduits aux colonnes de calcul, textes en catégories (filtres rapides)."""
+        if "_facts" not in self._panels:
+            f = self.facts
+            cols = [c for c in SLIM_FACT_COLUMNS if c in f.columns]
+            slim = f[cols].copy()
+            for c in ("symbol", "concept", "fiscal_period", "unit"):
+                if c in slim.columns:
+                    slim[c] = slim[c].astype("category")
+            if "tag_rank" in slim.columns:
+                slim["tag_rank"] = (
+                    pd.to_numeric(slim["tag_rank"], errors="coerce").fillna(0).astype("int16")
+                )
+            self._panels["_facts"] = slim.reset_index(drop=True)
+        return self._panels["_facts"]
 
     @property
     def symbols(self) -> list[str]:
@@ -94,8 +125,16 @@ class DataStore:
 
     def write_facts(self, df: pd.DataFrame) -> int:
         df = conform(df, FACTS)
-        keys = ["symbol", "concept", "tag", "period_start", "period_end", "available_at",
-                "value", "accession"]
+        keys = [
+            "symbol",
+            "concept",
+            "tag",
+            "period_start",
+            "period_end",
+            "available_at",
+            "value",
+            "accession",
+        ]
         for symbol, grp in df.groupby("symbol"):
             path = self.root / "facts" / f"{_safe(str(symbol))}.parquet"
             existing = pd.read_parquet(path) if path.exists() else None
@@ -107,8 +146,9 @@ class DataStore:
         for symbol, grp in df.groupby("symbol"):
             path = self.root / "events" / f"{_safe(str(symbol))}.parquet"
             existing = pd.read_parquet(path) if path.exists() else None
-            _atomic_write(_merge(existing, grp, ["symbol", "event_type", "event_time", "source"]),
-                          path)
+            _atomic_write(
+                _merge(existing, grp, ["symbol", "event_type", "event_time", "source"]), path
+            )
         return len(df)
 
     def write_securities(self, df: pd.DataFrame) -> int:
@@ -131,12 +171,15 @@ class DataStore:
     def write_run_manifest(self, run_id: str, manifest: dict[str, Any]) -> Path:
         path = self.root / "runs" / run_id / "manifest.json"
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False, default=str),
-                        encoding="utf-8")
+        path.write_text(
+            json.dumps(manifest, indent=2, ensure_ascii=False, default=str), encoding="utf-8"
+        )
         return path
 
     # -- lectures ------------------------------------------------------------------------
-    def _read_dir(self, sub: str, symbols: Iterable[str] | None, columns: list[str]) -> pd.DataFrame:
+    def _read_dir(
+        self, sub: str, symbols: Iterable[str] | None, columns: list[str]
+    ) -> pd.DataFrame:
         base = self.root / sub
         if not base.exists():
             return pd.DataFrame(columns=columns)
@@ -151,12 +194,17 @@ class DataStore:
         try:
             file_list = ", ".join(f"'{f.as_posix()}'" for f in files)
             return con.execute(
-                f"SELECT * FROM read_parquet([{file_list}], union_by_name=true)").df()
+                f"SELECT * FROM read_parquet([{file_list}], union_by_name=true)"
+            ).df()
         finally:
             con.close()
 
-    def read_prices(self, symbols: Iterable[str] | None = None, start: date | None = None,
-                    end: date | None = None) -> pd.DataFrame:
+    def read_prices(
+        self,
+        symbols: Iterable[str] | None = None,
+        start: date | None = None,
+        end: date | None = None,
+    ) -> pd.DataFrame:
         df = self._read_dir("prices", symbols, PRICES.columns)
         if df.empty:
             return conform(df, PRICES)
@@ -187,11 +235,19 @@ class DataStore:
         base = self.root / "runs"
         return sorted(p.name for p in base.iterdir() if p.is_dir()) if base.exists() else []
 
-    def load(self, symbols: Iterable[str] | None = None, start: date | None = None,
-             end: date | None = None) -> MarketData:
+    def load(
+        self,
+        symbols: Iterable[str] | None = None,
+        start: date | None = None,
+        end: date | None = None,
+    ) -> MarketData:
         syms = list(symbols) if symbols is not None else None
         securities = self.read_securities()
         if syms is not None:
             securities = securities[securities["symbol"].isin(syms)].reset_index(drop=True)
-        return MarketData(prices=self.read_prices(syms, start, end), facts=self.read_facts(syms),
-                          events=self.read_events(syms), securities=securities)
+        return MarketData(
+            prices=self.read_prices(syms, start, end),
+            facts=self.read_facts(syms),
+            events=self.read_events(syms),
+            securities=securities,
+        )

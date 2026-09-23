@@ -53,17 +53,57 @@ _YF_FIELDS: dict[str, tuple[str, ...]] = {
     "shares_outstanding": ("Ordinary Shares Number", "Share Issued"),
 }
 _ABSOLUTE = {"capex", "interest_expense", "depreciation"}
-_FLOWS = {"revenue", "cogs", "gross_profit", "sga", "ebit", "pretax_income", "income_tax",
-          "net_income", "interest_expense", "depreciation", "eps_diluted", "cfo", "capex"}
+_FLOWS = {
+    "revenue",
+    "cogs",
+    "gross_profit",
+    "sga",
+    "ebit",
+    "pretax_income",
+    "income_tax",
+    "net_income",
+    "interest_expense",
+    "depreciation",
+    "eps_diluted",
+    "cfo",
+    "capex",
+}
 
 COUNTRY_ISO = {
-    "united states": "US", "france": "FR", "germany": "DE", "netherlands": "NL",
-    "united kingdom": "GB", "switzerland": "CH", "italy": "IT", "spain": "ES", "belgium": "BE",
-    "sweden": "SE", "denmark": "DK", "norway": "NO", "finland": "FI", "ireland": "IE",
-    "austria": "AT", "portugal": "PT", "luxembourg": "LU", "poland": "PL", "canada": "CA",
-    "japan": "JP", "china": "CN", "hong kong": "HK", "taiwan": "TW", "south korea": "KR",
-    "india": "IN", "brazil": "BR", "mexico": "MX", "israel": "IL", "australia": "AU",
-    "singapore": "SG", "bermuda": "BM", "cayman islands": "KY", "jersey": "JE", "guernsey": "GG",
+    "united states": "US",
+    "france": "FR",
+    "germany": "DE",
+    "netherlands": "NL",
+    "united kingdom": "GB",
+    "switzerland": "CH",
+    "italy": "IT",
+    "spain": "ES",
+    "belgium": "BE",
+    "sweden": "SE",
+    "denmark": "DK",
+    "norway": "NO",
+    "finland": "FI",
+    "ireland": "IE",
+    "austria": "AT",
+    "portugal": "PT",
+    "luxembourg": "LU",
+    "poland": "PL",
+    "canada": "CA",
+    "japan": "JP",
+    "china": "CN",
+    "hong kong": "HK",
+    "taiwan": "TW",
+    "south korea": "KR",
+    "india": "IN",
+    "brazil": "BR",
+    "mexico": "MX",
+    "israel": "IL",
+    "australia": "AU",
+    "singapore": "SG",
+    "bermuda": "BM",
+    "cayman islands": "KY",
+    "jersey": "JE",
+    "guernsey": "GG",
 }
 
 
@@ -82,23 +122,26 @@ def history_to_prices(hist: pd.DataFrame, symbol: str) -> pd.DataFrame:
     h = hist.copy()
     idx = pd.DatetimeIndex(h.index)
     h.index = idx.tz_localize(None) if idx.tz is not None else idx
-    df = pd.DataFrame({
-        "symbol": symbol,
-        "date": h.index,
-        "open": h.get("Open"),
-        "high": h.get("High"),
-        "low": h.get("Low"),
-        "close": h.get("Close"),
-        "adj_close": h.get("Adj Close", h.get("Close")),
-        "volume": h.get("Volume"),
-        "source": "yfinance",
-        "ingested_at": datetime.now(UTC),
-    })
+    df = pd.DataFrame(
+        {
+            "symbol": symbol,
+            "date": h.index,
+            "open": h.get("Open"),
+            "high": h.get("High"),
+            "low": h.get("Low"),
+            "close": h.get("Close"),
+            "adj_close": h.get("Adj Close", h.get("Close")),
+            "volume": h.get("Volume"),
+            "source": "yfinance",
+            "ingested_at": datetime.now(UTC),
+        }
+    )
     return conform(df, PRICES)
 
 
-def statements_to_facts(statements: dict[str, pd.DataFrame], symbol: str,
-                        lags: dict[str, int], currency: str | None) -> pd.DataFrame:
+def statements_to_facts(
+    statements: dict[str, pd.DataFrame], symbol: str, lags: dict[str, int], currency: str | None
+) -> pd.DataFrame:
     """Convertit les états yfinance (colonnes = fins de période) en faits canoniques.
 
     Aucune date de publication n'est fournie : on applique un décalage conservateur et on
@@ -119,25 +162,41 @@ def statements_to_facts(statements: dict[str, pd.DataFrame], symbol: str,
                     continue
                 end = pd.Timestamp(str(col)).normalize()
                 v = abs(float(value)) if concept in _ABSOLUTE else float(value)
-                start = (end - pd.DateOffset(months=months) + pd.Timedelta(days=1)
-                         if concept in _FLOWS else None)
-                rows.append({
-                    "symbol": symbol, "concept": concept, "value": v,
-                    "period_start": start, "period_end": end,
-                    "fiscal_period": ("FY" if freq == "annual" else "Q") if concept in _FLOWS else None,
-                    "form": f"yfinance-{freq}", "unit": currency,
-                    "available_at": estimated_available_at(end.date(), lag),
-                    "lag_estimated": True, "source": "yfinance", "tag": label, "tag_rank": 0,
-                })
-    return conform(pd.DataFrame(rows, columns=FACTS.columns) if not rows else pd.DataFrame(rows),
-                   FACTS)
+                start = (
+                    end - pd.DateOffset(months=months) + pd.Timedelta(days=1)
+                    if concept in _FLOWS
+                    else None
+                )
+                rows.append(
+                    {
+                        "symbol": symbol,
+                        "concept": concept,
+                        "value": v,
+                        "period_start": start,
+                        "period_end": end,
+                        "fiscal_period": ("FY" if freq == "annual" else "Q")
+                        if concept in _FLOWS
+                        else None,
+                        "form": f"yfinance-{freq}",
+                        "unit": currency,
+                        "available_at": estimated_available_at(end.date(), lag),
+                        "lag_estimated": True,
+                        "source": "yfinance",
+                        "tag": label,
+                        "tag_rank": 0,
+                    }
+                )
+    return conform(
+        pd.DataFrame(rows, columns=FACTS.columns) if not rows else pd.DataFrame(rows), FACTS
+    )
 
 
 class YFinanceProvider:
     name = "yfinance"
 
-    def __init__(self, pause_seconds: float = 0.3,
-                 publication_lags: dict[str, int] | None = None) -> None:
+    def __init__(
+        self, pause_seconds: float = 0.3, publication_lags: dict[str, int] | None = None
+    ) -> None:
         self.pause = pause_seconds
         self.lags = publication_lags or {"annual": 120, "semiannual": 75, "quarterly": 60}
 
@@ -146,18 +205,62 @@ class YFinanceProvider:
         return _yf().Ticker(to_yahoo(symbol))
 
     def get_daily_prices(self, symbol: str, start: date, end: date) -> pd.DataFrame:
-        hist = self._ticker(symbol).history(start=start, end=end + timedelta(days=1),
-                                            auto_adjust=False, actions=False)
+        hist = self._ticker(symbol).history(
+            start=start, end=end + timedelta(days=1), auto_adjust=False, actions=False
+        )
         return history_to_prices(hist, symbol)
+
+    def get_daily_prices_batch(
+        self, symbols: list[str], start: date, end: date, chunk: int = 80
+    ) -> pd.DataFrame:
+        """Téléchargement groupé (beaucoup moins d'appels qu'un appel par titre)."""
+        frames = []
+        for k in range(0, len(symbols), chunk):
+            part = symbols[k : k + chunk]
+            yahoo = {to_yahoo(s): s for s in part}
+            time.sleep(self.pause)
+            raw = _yf().download(
+                tickers=list(yahoo),
+                start=start,
+                end=end + timedelta(days=1),
+                auto_adjust=False,
+                actions=False,
+                group_by="ticker",
+                threads=True,
+                progress=False,
+            )
+            if raw is None or raw.empty:
+                continue
+            for ysym, sym in yahoo.items():
+                if isinstance(raw.columns, pd.MultiIndex):
+                    if ysym not in raw.columns.get_level_values(0):
+                        continue
+                    hist = raw[ysym]
+                else:
+                    hist = raw
+                frames.append(history_to_prices(hist.dropna(how="all"), sym))
+        if not frames:
+            return conform(pd.DataFrame(columns=PRICES.columns), PRICES)
+        return pd.concat(frames, ignore_index=True)
+
+    def get_fx_to_usd(self, currency: str, start: date, end: date) -> pd.DataFrame:
+        """Taux « 1 devise = x USD » stockés sous le symbole ``<DEV>USD.FX``."""
+        hist = (
+            _yf()
+            .Ticker(f"{currency.upper()}USD=X")
+            .history(start=start, end=end + timedelta(days=1), auto_adjust=False)
+        )
+        return history_to_prices(hist, f"{currency.upper()}USD.FX")
 
     def get_facts(self, symbol: str) -> pd.DataFrame:
         t = self._ticker(symbol)
         info = self._safe_info(t)
         currency = info.get("financialCurrency") or info.get("currency")
         statements: dict[str, pd.DataFrame] = {}
-        for freq, attrs in {"annual": ("income_stmt", "balance_sheet", "cashflow"),
-                            "quarterly": ("quarterly_income_stmt", "quarterly_balance_sheet",
-                                          "quarterly_cashflow")}.items():
+        for freq, attrs in {
+            "annual": ("income_stmt", "balance_sheet", "cashflow"),
+            "quarterly": ("quarterly_income_stmt", "quarterly_balance_sheet", "quarterly_cashflow"),
+        }.items():
             frames = [getattr(t, a, None) for a in attrs]
             frames = [f for f in frames if isinstance(f, pd.DataFrame) and not f.empty]
             if frames:
@@ -231,10 +334,16 @@ class YFinanceProvider:
         otm_put = puts.iloc[(puts["strike"] - 0.95 * spot).abs().argsort()[:1]]
         iv_c = float(atm_call["impliedVolatility"].iloc[0]) if not atm_call.empty else float("nan")
         iv_p = float(otm_put["impliedVolatility"].iloc[0]) if not otm_put.empty else float("nan")
-        return {"symbol": symbol, "expiry": expiry, "spot": spot, "iv_atm_call": iv_c,
-                "iv_otm_put": iv_p, "smirk": iv_p - iv_c,
-                "call_volume": float(calls["volume"].fillna(0).sum()),
-                "put_volume": float(puts["volume"].fillna(0).sum())}
+        return {
+            "symbol": symbol,
+            "expiry": expiry,
+            "spot": spot,
+            "iv_atm_call": iv_c,
+            "iv_otm_put": iv_p,
+            "smirk": iv_p - iv_c,
+            "call_volume": float(calls["volume"].fillna(0).sum()),
+            "put_volume": float(puts["volume"].fillna(0).sum()),
+        }
 
 
 def _num(v: Any) -> float | None:

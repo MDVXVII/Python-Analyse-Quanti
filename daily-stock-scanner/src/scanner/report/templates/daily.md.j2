@@ -1,0 +1,103 @@
+# Scanner quotidien — {{ run_date }}
+
+{% if demo %}
+> **DÉMONSTRATION SUR DONNÉES SYNTHÉTIQUES.** Les sociétés et les chiffres ci-dessous sont
+> fictifs ; ce rapport montre uniquement le format et la mécanique du scanner.
+
+{% endif %}
+*Décision au {{ as_of }} · dernières clôtures prises en compte : {{ last_price_date }} ·
+exécution `{{ run_id }}` · configuration `{{ config_fingerprint }}`*
+
+{% for n in notices %}
+> {{ n }}
+{% endfor %}
+
+## 1. Contexte de marché
+
+- Régime macro, banques centrales, politique commerciale : **non disponible** (Modules 5 et 6, Phases 2-3).
+- Univers analysé : {{ universe_size }} titres, dont {{ universe_liquid }} passent les filtres de liquidité.
+
+## 2. Idées du jour
+
+Les scores reposent sur des signaux issus de la littérature, pré-enregistrés et **équipondérés
+a priori** ; leur validation sur nos propres données est en cours (voir le rapport de validation).
+Les shorts sont des idées suivies **sur papier** (PEA/CTO : pas de vente à découvert directe).
+
+{% for book_id, book in books.items() %}
+### Livre {{ book_id }} — {{ book.label }}
+
+{% for idea in book.ideas %}
+#### {{ idea.rank }}. {{ idea.symbol }} — {{ idea.name }} ({{ 'LONG' if idea.side == 'long' else 'SHORT papier' }})
+
+- Secteur : {{ idea.sector }} · pays : {{ idea.country }} · score : **{{ idea.score|num }}**{% if idea.execution %} · {{ idea.execution|join(' · ') }}{% endif %}
+
+- Pourquoi (faits issus des données, contributions au score) :
+{% for d in idea.drivers %}
+  - {{ d.signal }} : {{ d.value }} (contribution {{ d.contribution }})
+{% endfor %}
+- Familles : {% for k, v in idea.families.items() %}{{ k }} {{ v|num }}{% if not loop.last %} · {% endif %}{% endfor %}
+
+- Catalyseurs : {{ idea.catalysts }}
+- Invalidation : {{ idea.invalidation }}
+{% if idea.flags %}
+- Alertes : {{ idea.flags|join(' ; ') }}
+{% endif %}
+- Thèse rédigée, scénarios et analyse contradictoire : Phase 3 (LLM avec contrôle des sources).
+
+{% endfor %}
+{% endfor %}
+## 3. Changements par rapport à la veille
+
+{% if changes %}
+| Livre | Mouvement | Titre | Cause principale |
+|---|---|---|---|
+{% for c in changes %}
+| {{ c.book }} | {{ c.change }} | {{ c.symbol }} | {{ c.cause }} |
+{% endfor %}
+{% else %}
+Pas de classement antérieur comparable (premier jour ou exécution précédente absente).
+{% endif %}
+
+## 4. Alertes
+
+{% if alerts %}
+{% for a in alerts %}
+- {{ a }}
+{% endfor %}
+{% else %}
+Aucune alerte.
+{% endif %}
+
+## 5. Suivi des recommandations passées
+
+{% if performance %}
+| Livre | Sens | Horizon | Nombre | Rendement moyen | Taux de réussite |
+|---|---|---|---|---|---|
+{% for p in performance %}
+| {{ p.book }} | {{ p.side }} | {{ p.horizon }} j | {{ p.n }} | {{ p.mean_return|pct }} | {{ p.hit_rate|pct(0) }} |
+{% endfor %}
+{% else %}
+Historique encore trop court pour une mesure (journal démarré récemment).
+{% endif %}
+
+## 6. Qualité des données et sources
+
+{% if qc %}
+| Gravité | Contrôle | Titre | Détail |
+|---|---|---|---|
+{% for q in qc %}
+| {{ q.severity }} | {{ q.check }} | {{ q.symbol }} | {{ q.detail }} |
+{% endfor %}
+{% else %}
+Aucune anomalie détectée par les contrôles automatiques.
+{% endif %}
+
+| Source | Usage | État |
+|---|---|---|
+{% for s in data_sources %}
+| {{ s.name }} | {{ s.usage }} | {{ s.status }} |
+{% endfor %}
+
+---
+*Outil personnel d'aide à la décision. Rien ici ne constitue un conseil en investissement.
+Aucun ordre n'est passé automatiquement.*

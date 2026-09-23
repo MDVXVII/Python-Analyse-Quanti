@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scanner quotidien — {{ run_date }}</title>
+</head>
+<body style="margin:0;padding:0;background:#f5f6f8;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1d2330;">
+<div style="max-width:760px;margin:0 auto;padding:20px 16px;">
+  <h1 style="font-size:22px;margin:0 0 4px;">Scanner quotidien — {{ run_date }}</h1>
+  <p style="margin:0 0 16px;font-size:12px;color:#5b6475;">Décision au {{ as_of }} · clôtures jusqu'au {{ last_price_date }} · exécution {{ run_id }} · config {{ config_fingerprint }}</p>
+  {% if demo %}
+  <div style="background:#fff4d6;border:1px solid #e8c766;border-radius:6px;padding:10px 12px;font-size:13px;margin-bottom:14px;">
+    <strong>Démonstration sur données synthétiques.</strong> Sociétés et chiffres fictifs : ce rapport illustre uniquement le format et la mécanique.
+  </div>
+  {% endif %}
+  {% for n in notices %}
+  <div style="background:#eef3fb;border-left:3px solid #3b6fc4;padding:8px 12px;font-size:13px;margin-bottom:8px;">{{ n }}</div>
+  {% endfor %}
+
+  <h2 style="font-size:17px;margin:22px 0 8px;">1. Contexte de marché</h2>
+  <p style="font-size:14px;margin:4px 0;">Régime macro et actualité politique : <em>non disponible (Phases 2-3)</em>.</p>
+  <p style="font-size:14px;margin:4px 0;">Univers : {{ universe_size }} titres, dont {{ universe_liquid }} suffisamment liquides.</p>
+
+  <h2 style="font-size:17px;margin:22px 0 8px;">2. Idées du jour</h2>
+  <p style="font-size:13px;color:#5b6475;margin:4px 0 10px;">Signaux de la littérature, équipondérés a priori ; validation interne en cours. Shorts suivis sur papier.</p>
+  {% for book_id, book in books.items() %}
+  <h3 style="font-size:15px;margin:18px 0 6px;">Livre {{ book_id }} — {{ book.label }}</h3>
+  {% for idea in book.ideas %}
+  <div style="background:#ffffff;border:1px solid #dfe3ea;border-radius:8px;padding:10px 12px;margin:0 0 10px;">
+    <div style="font-size:14px;font-weight:600;">
+      {{ idea.rank }}. {{ idea.symbol }} — {{ idea.name }}
+      <span style="font-weight:600;font-size:11px;padding:2px 6px;border-radius:4px;margin-left:6px;{{ 'background:#e3f4e8;color:#1f6b3a;' if idea.side == 'long' else 'background:#fbe7e7;color:#8a2323;' }}">{{ 'LONG' if idea.side == 'long' else 'SHORT papier' }}</span>
+      <span style="float:right;font-variant-numeric:tabular-nums;">score {{ idea.score|num }}</span>
+    </div>
+    <div style="font-size:12px;color:#5b6475;margin:2px 0 6px;">{{ idea.sector }} · {{ idea.country }}{% if idea.execution %} · {{ idea.execution|join(' · ') }}{% endif %}</div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+      {% for d in idea.drivers %}
+      <tr><td style="padding:2px 0;">{{ d.signal }}</td><td style="padding:2px 0;text-align:right;font-variant-numeric:tabular-nums;">{{ d.value }}</td><td style="padding:2px 0 2px 10px;text-align:right;color:#5b6475;font-variant-numeric:tabular-nums;">{{ d.contribution }}</td></tr>
+      {% endfor %}
+    </table>
+    <div style="font-size:12px;margin-top:6px;"><strong>Catalyseurs :</strong> {{ idea.catalysts }}</div>
+    <div style="font-size:12px;"><strong>Invalidation :</strong> {{ idea.invalidation }}</div>
+    {% if idea.flags %}<div style="font-size:12px;color:#8a2323;"><strong>Alertes :</strong> {{ idea.flags|join(' ; ') }}</div>{% endif %}
+  </div>
+  {% endfor %}
+  {% endfor %}
+
+  <h2 style="font-size:17px;margin:22px 0 8px;">3. Changements par rapport à la veille</h2>
+  {% if changes %}
+  <table style="width:100%;border-collapse:collapse;font-size:12px;background:#fff;">
+    <tr style="text-align:left;border-bottom:1px solid #dfe3ea;"><th style="padding:4px;">Livre</th><th style="padding:4px;">Mouvement</th><th style="padding:4px;">Titre</th><th style="padding:4px;">Cause</th></tr>
+    {% for c in changes %}<tr style="border-bottom:1px solid #eef0f4;"><td style="padding:4px;">{{ c.book }}</td><td style="padding:4px;">{{ c.change }}</td><td style="padding:4px;">{{ c.symbol }}</td><td style="padding:4px;">{{ c.cause }}</td></tr>{% endfor %}
+  </table>
+  {% else %}<p style="font-size:13px;">Pas de classement antérieur comparable.</p>{% endif %}
+
+  <h2 style="font-size:17px;margin:22px 0 8px;">4. Alertes</h2>
+  {% if alerts %}<ul style="font-size:13px;padding-left:18px;">{% for a in alerts %}<li>{{ a }}</li>{% endfor %}</ul>{% else %}<p style="font-size:13px;">Aucune alerte.</p>{% endif %}
+
+  <h2 style="font-size:17px;margin:22px 0 8px;">5. Suivi des recommandations passées</h2>
+  {% if performance %}
+  <table style="width:100%;border-collapse:collapse;font-size:12px;background:#fff;">
+    <tr style="text-align:left;border-bottom:1px solid #dfe3ea;"><th style="padding:4px;">Livre</th><th style="padding:4px;">Sens</th><th style="padding:4px;">Horizon</th><th style="padding:4px;text-align:right;">N</th><th style="padding:4px;text-align:right;">Rend. moyen</th><th style="padding:4px;text-align:right;">Réussite</th></tr>
+    {% for p in performance %}<tr style="border-bottom:1px solid #eef0f4;"><td style="padding:4px;">{{ p.book }}</td><td style="padding:4px;">{{ p.side }}</td><td style="padding:4px;">{{ p.horizon }} j</td><td style="padding:4px;text-align:right;">{{ p.n }}</td><td style="padding:4px;text-align:right;">{{ p.mean_return|pct }}</td><td style="padding:4px;text-align:right;">{{ p.hit_rate|pct(0) }}</td></tr>{% endfor %}
+  </table>
+  {% else %}<p style="font-size:13px;">Historique encore trop court pour une mesure.</p>{% endif %}
+
+  <h2 style="font-size:17px;margin:22px 0 8px;">6. Qualité des données et sources</h2>
+  {% if qc %}
+  <table style="width:100%;border-collapse:collapse;font-size:12px;background:#fff;">
+    {% for q in qc %}<tr style="border-bottom:1px solid #eef0f4;"><td style="padding:4px;">{{ q.severity }}</td><td style="padding:4px;">{{ q.check }}</td><td style="padding:4px;">{{ q.symbol }}</td><td style="padding:4px;">{{ q.detail }}</td></tr>{% endfor %}
+  </table>
+  {% else %}<p style="font-size:13px;">Aucune anomalie détectée.</p>{% endif %}
+  <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:8px;">
+    {% for s in data_sources %}<tr style="border-bottom:1px solid #eef0f4;"><td style="padding:4px;">{{ s.name }}</td><td style="padding:4px;">{{ s.usage }}</td><td style="padding:4px;">{{ s.status }}</td></tr>{% endfor %}
+  </table>
+
+  <p style="font-size:11px;color:#5b6475;margin-top:24px;">Outil personnel d'aide à la décision. Rien ici ne constitue un conseil en investissement. Aucun ordre n'est passé automatiquement.</p>
+</div>
+</body>
+</html>

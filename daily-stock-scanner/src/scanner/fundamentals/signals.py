@@ -54,25 +54,22 @@ def _annual_stats(annual: pd.DataFrame) -> pd.DataFrame:
     a["_roic"] = safe_div(get("ebit") * (1 - tax_rate), invested.where(invested > 0))
     a["_gm"] = safe_div(gp, get("revenue"))
     a["_gpa"] = safe_div(gp, get("total_assets"))
-    g = a.groupby(level="symbol")
+    last5 = a[["_roic", "_gm", "_gpa"]].groupby(level="symbol", group_keys=False).tail(5)
+    g = last5.groupby(level="symbol")
+    counts = g.count()
+    std = g.std()
     out = pd.DataFrame(
         {
-            "roic_std": g["_roic"].agg(
-                lambda s: s.tail(5).std() if s.tail(5).notna().sum() >= 3 else np.nan
-            ),
-            "gm_std": g["_gm"].agg(
-                lambda s: s.tail(5).std() if s.tail(5).notna().sum() >= 3 else np.nan
-            ),
+            "roic_std": std["_roic"].where(counts["_roic"] >= 3),
+            "gm_std": std["_gm"].where(counts["_gm"] >= 3),
         }
     )
-
-    def _dprof(s: pd.Series) -> float:
-        s = s.dropna().tail(5)
-        if len(s) < 3:
-            return np.nan
-        return float((s.iloc[-1] - s.iloc[0]) / (len(s) - 1))
-
-    out["gpa_trend"] = g["_gpa"].agg(_dprof)
+    # Croissance de la rentabilité : (dernière - première valeur disponible) / (n - 1)
+    gpa = last5["_gpa"].dropna()
+    gg = gpa.groupby(level="symbol")
+    n = gg.count()
+    trend = (gg.last() - gg.first()) / (n - 1).where(n >= 3)
+    out["gpa_trend"] = trend.reindex(out.index)
     return out
 
 
