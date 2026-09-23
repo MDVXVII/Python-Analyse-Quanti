@@ -1,9 +1,11 @@
 .venv/
 .env
-data/
+/data/
 *.tmp.parquet
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
 __pycache__/
 *.egg-info/
+# Le .gitignore racine ignore *.csv : on réautorise les listes de référence versionnées.
+!config/universe/*.csv
