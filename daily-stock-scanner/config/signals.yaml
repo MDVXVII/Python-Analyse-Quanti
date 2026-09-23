@@ -1,0 +1,305 @@
+# Catalogue des signaux : pré-enregistrement (signe attendu, statut, références).
+# Voir research_notes.md §10 pour la justification complète.
+#
+# sign    : +1 si une valeur brute élevée est favorable à un long, -1 sinon.
+# books   : livre -> famille de signaux dans laquelle le signal est agrégé.
+# status  : core_validated  = validé par notre backtest hors échantillon
+#           core_candidate  = issu de la littérature, pré-enregistré, en attente de validation interne
+#           observation     = calculé et archivé, pondération nulle
+#           penalty         = utilisé uniquement comme pénalité
+#           filter          = utilisé uniquement comme filtre
+#           context         = affiché, sans effet sur le score
+#           retired         = retiré après validation négative
+
+signals:
+  # ---------------------------------------------------------------- Module 3 : quant
+  - id: Q-MOM-12-1
+    name: "Momentum 12-1 mois"
+    module: quant
+    books: {M: momentum}
+    sign: 1
+    status: core_candidate
+    phase: 1
+    refs: ["Jegadeesh & Titman (1993)", "Asness, Moskowitz & Pedersen (2013)"]
+    description: "Rendement entre t-252 et t-21 séances (on saute le dernier mois)."
+  - id: Q-MOM-6-1
+    name: "Momentum 6-1 mois"
+    module: quant
+    books: {S: momentum_short}
+    sign: 1
+    status: core_candidate
+    phase: 1
+    refs: ["Jegadeesh & Titman (1993)"]
+    description: "Rendement entre t-126 et t-21 séances."
+  - id: Q-RESMOM
+    name: "Momentum résiduel"
+    module: quant
+    books: {M: momentum}
+    sign: 1
+    status: core_candidate
+    phase: 1
+    refs: ["Blitz, Huij & Martens (2011)"]
+    description: "Somme des résidus mensuels (t-12 à t-2) d'une régression sur le marché, rapportée à leur écart-type."
+  - id: Q-INDMOM
+    name: "Momentum sectoriel"
+    module: quant
+    books: {S: momentum_short}
+    sign: 1
+    status: core_candidate
+    phase: 1
+    refs: ["Moskowitz & Grinblatt (1999)"]
+    description: "Médiane du momentum 6-1 du secteur (même région), attribuée à chaque membre."
+  - id: Q-RS
+    name: "Force relative 3 mois vs secteur"
+    module: quant
+    books: {S: momentum_short}
+    sign: 1
+    status: core_candidate
+    phase: 1
+    refs: ["variante du momentum sectoriel relatif"]
+    description: "Rendement 63 séances moins la médiane du secteur."
+  - id: Q-52WH
+    name: "Proximité du plus haut 52 semaines"
+    module: quant
+    books: {S: momentum_short}
+    sign: 1
+    status: core_candidate
+    phase: 1
+    refs: ["George & Hwang (2004)"]
+    description: "Cours / plus haut des 252 dernières séances."
+  - id: Q-LOWVOL
+    name: "Faible volatilité"
+    module: quant
+    books: {M: low_risk, L: low_risk}
+    sign: -1
+    status: core_candidate
+    phase: 1
+    refs: ["Frazzini & Pedersen (2014)", "Ang, Hodrick, Xing & Zhang (2006)"]
+    description: "Volatilité annualisée des rendements quotidiens sur 252 séances (plus faible = mieux)."
+  - id: Q-ABVOL
+    name: "Volume anormal"
+    module: quant
+    books: {S: volume}
+    sign: 1
+    status: core_candidate
+    phase: 1
+    refs: ["Gervais, Kaniel & Mingelgrin (2001)"]
+    description: "log(volume moyen 5 j / volume moyen des 60 j précédents). Conditionné à une nouvelle en Phase 3."
+  - id: Q-EAR
+    name: "Réaction aux résultats (EAR 3 jours)"
+    module: quant
+    books: {S: earnings}
+    sign: 1
+    status: core_candidate
+    phase: 1
+    refs: ["Brandt, Kishore, Santa-Clara & Venkatachalam (2008)", "Chan, Jegadeesh & Lakonishok (1996)", "Martineau (2022) : effet disparu sur grandes caps US"]
+    description: "Rendement anormal (vs marché) de j-1 à j+1 autour de la dernière annonce, valable 60 séances."
+  - id: Q-TREND
+    name: "Trend Template (Minervini)"
+    module: quant
+    books: {S: momentum_short}
+    sign: 1
+    status: observation
+    phase: 1
+    refs: ["Minervini (2013)"]
+    description: "Nombre de critères du Trend Template satisfaits (0 à 8)."
+  - id: Q-VCP
+    name: "Contraction de volatilité (proxy VCP)"
+    module: quant
+    books: {S: momentum_short}
+    sign: 1
+    status: observation
+    phase: 1
+    refs: ["Minervini (2013)"]
+    description: "Baisse de l'ATR sur 4 semaines vs 4 semaines précédentes, avec volume en retrait."
+  - id: Q-STREV
+    name: "Retournement court terme 1 mois"
+    module: quant
+    books: {S: momentum_short}
+    sign: -1
+    status: observation
+    phase: 1
+    refs: ["Jegadeesh (1990)", "Novy-Marx & Velikov (2016) : ne survit pas aux coûts"]
+    description: "Rendement des 21 dernières séances (signe négatif)."
+
+  # ---------------------------------------------------------- Module 2 : fondamentaux
+  - id: F-GP
+    name: "Rentabilité brute / actifs"
+    module: fundamentals
+    books: {M: quality, L: quality}
+    sign: 1
+    status: core_candidate
+    phase: 1
+    refs: ["Novy-Marx (2013)"]
+    description: "Marge brute TTM / total actif."
+  - id: F-CBOP
+    name: "Rentabilité opérationnelle cash (proxy)"
+    module: fundamentals
+    books: {M: quality, L: quality}
+    sign: 1
+    status: core_candidate
+    phase: 1
+    refs: ["Ball, Gerakos, Linnainmaa & Nikolaev (2016)"]
+    description: "(Flux de trésorerie d'exploitation + charges d'intérêts) / total actif. Approximation de la mesure originale."
+  - id: F-ROIC
+    name: "ROIC"
+    module: fundamentals
+    books: {L: quality}
+    sign: 1
+    status: core_candidate
+    phase: 1
+    refs: ["Asness, Frazzini & Pedersen (2019) — QMJ"]
+    description: "EBIT x (1 - taux d'impôt) / (capitaux propres + dette - trésorerie)."
+  - id: F-ROIC-STAB
+    name: "Stabilité du ROIC (5 ans)"
+    module: fundamentals
+    books: {L: quality}
+    sign: -1
+    status: core_candidate
+    phase: 1
+    refs: ["QMJ (sécurité)", "Frazzini, Kabiller & Pedersen (2018)"]
+    description: "Écart-type du ROIC annuel sur 3 à 5 exercices (plus faible = mieux)."
+  - id: F-GM-STAB
+    name: "Stabilité de la marge brute (5 ans)"
+    module: fundamentals
+    books: {L: quality}
+    sign: -1
+    status: core_candidate
+    phase: 1
+    refs: ["QMJ (sécurité)"]
+    description: "Écart-type de la marge brute annuelle sur 3 à 5 exercices."
+  - id: F-ACCR
+    name: "Accruals"
+    module: fundamentals
+    books: {M: quality}
+    sign: -1
+    status: core_candidate
+    phase: 1
+    refs: ["Sloan (1996)"]
+    description: "(Résultat net - flux de trésorerie d'exploitation) / actif moyen."
+  - id: F-EY
+    name: "EBIT / EV"
+    module: fundamentals
+    books: {M: value, L: value}
+    sign: 1
+    status: core_candidate
+    phase: 1
+    refs: ["Loughran & Wellman (2011)", "Gray & Carlisle (2012)"]
+    description: "EBIT TTM / valeur d'entreprise. Non calculé pour les financières."
+  - id: F-FCFY
+    name: "FCF / EV"
+    module: fundamentals
+    books: {M: value, L: value}
+    sign: 1
+    status: core_candidate
+    phase: 1
+    refs: ["famille value"]
+    description: "(Flux d'exploitation - capex) TTM / valeur d'entreprise. Non calculé pour les financières."
+  - id: F-BM
+    name: "Book-to-market"
+    module: fundamentals
+    books: {M: value}
+    sign: 1
+    status: core_candidate
+    phase: 1
+    refs: ["Fama & French (1993)"]
+    description: "Capitaux propres / capitalisation."
+  - id: F-PE-HIST
+    name: "Rendement bénéficiaire vs historique propre"
+    module: fundamentals
+    books: {L: value}
+    sign: 1
+    status: observation
+    phase: 1
+    refs: ["pratique de gérants (preuve D)"]
+    description: "Percentile du E/P actuel dans l'historique E/P de la société (fins d'exercice, 5 ans)."
+  - id: F-ISSUE
+    name: "Émissions nettes / rachats"
+    module: fundamentals
+    books: {M: investment}
+    sign: 1
+    status: core_candidate
+    phase: 1
+    refs: ["Pontiff & Woodgate (2008)", "Daniel & Titman (2006)"]
+    description: "-log(actions_t / actions_t-1an) : positif en cas de rachats."
+  - id: F-AGR
+    name: "Croissance des actifs"
+    module: fundamentals
+    books: {M: investment}
+    sign: -1
+    status: core_candidate
+    phase: 1
+    refs: ["Cooper, Gulen & Schill (2008)"]
+    description: "Croissance annuelle du total actif (plus faible = mieux)."
+  - id: F-DPROF
+    name: "Croissance de la rentabilité"
+    module: fundamentals
+    books: {L: quality}
+    sign: 1
+    status: core_candidate
+    phase: 1
+    refs: ["Asness, Frazzini & Pedersen (2019) — QMJ (croissance)"]
+    description: "Variation annualisée de la marge brute / actif sur 3 à 5 exercices."
+  - id: F-PIOT
+    name: "Piotroski F-Score"
+    module: fundamentals
+    books: {M: quality, L: safety}
+    sign: 1
+    status: core_candidate
+    phase: 1
+    refs: ["Piotroski (2000)"]
+    description: "Somme de 9 critères binaires. Non calculé pour les financières."
+  - id: F-LEV
+    name: "Levier financier"
+    module: fundamentals
+    books: {L: safety}
+    sign: -1
+    status: core_candidate
+    phase: 1
+    refs: ["QMJ (sécurité)"]
+    description: "Dette totale / total actif."
+  - id: F-COVER
+    name: "Couverture des intérêts"
+    module: fundamentals
+    books: {L: safety}
+    sign: 1
+    status: core_candidate
+    phase: 1
+    refs: ["QMJ (sécurité)"]
+    description: "EBIT / charges d'intérêts (plafonné à 50)."
+  - id: F-SUE
+    name: "Surprise de BPA (SUE, sans consensus)"
+    module: fundamentals
+    books: {S: earnings}
+    sign: 1
+    status: core_candidate
+    phase: 1
+    refs: ["Bernard & Thomas (1989)", "Martineau (2022) : effet disparu sur grandes caps US"]
+    description: "(BPA_q - BPA_q-4) / écart-type des 8 variations précédentes ; valable 60 séances après publication."
+  - id: F-ALTZ
+    name: "Altman Z / Z''"
+    module: fundamentals
+    books: {}
+    sign: 1
+    status: penalty
+    phase: 1
+    refs: ["Altman (1968)", "Altman (2005)", "Campbell, Hilscher & Szilagyi (2008)"]
+    description: "Zone de détresse → pénalité. Non calculé pour les financières."
+  - id: F-BENM
+    name: "Beneish M-Score"
+    module: fundamentals
+    books: {}
+    sign: -1
+    status: penalty
+    phase: 1
+    refs: ["Beneish (1999)", "Beneish, Lee & Nichols (2013)"]
+    description: "M > -1,78 → pénalité et alerte. Non calculé pour les financières."
+  - id: F-REV
+    name: "Révisions de consensus"
+    module: fundamentals
+    books: {S: earnings, M: quality}
+    sign: 1
+    status: observation
+    phase: 1
+    refs: ["Chan, Jegadeesh & Lakonishok (1996)"]
+    description: "Archivage quotidien des instantanés de consensus dès le jour 1 ; validation forward ultérieure."

@@ -1,0 +1,98 @@
+# Paramètres généraux du scanner.
+# Règle : tout ce qui est « réglable » vit dans config/, jamais en dur dans le code.
+
+project:
+  name: daily-stock-scanner
+  base_currency: EUR
+  report_timezone: Europe/Paris
+
+paths:
+  data_dir: data                # données locales (ignorées par git)
+  cache_dir: data/cache         # cache HTTP des providers
+  reports_dir: data/reports
+  journal_dir: data/journal     # journal privé des recommandations
+  commitments_dir: commitments  # empreintes publiques du journal (versionnées dans git)
+
+universe:
+  tier1_indices: [SP500, NDX100, STOXX600, SBF120]
+  liquidity:
+    min_price_usd: 3.0
+    min_adv_usd: 1000000          # volume quotidien médian (60 j) en USD
+    min_market_cap_usd: 300000000
+    adv_window_days: 60
+  # Pays du siège éligibles au PEA (UE + EEE). Royaume-Uni et Suisse exclus.
+  # Approximation : l'éligibilité réelle se confirme auprès du courtier.
+  # Codes entre guillemets : sans eux, YAML lit « NO » (Norvège) comme le booléen false.
+  pea_countries: ["AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR", "HU",
+                  "IE", "IT", "LV", "LT", "LU", "MT", "NL", "PL", "PT", "RO", "SK", "SI", "ES",
+                  "SE", "IS", "LI", "NO"]
+  # TTF française : sociétés françaises de plus d'1 Md€ de capitalisation au 1er décembre.
+  # Approximation par la capitalisation courante tant que la liste officielle n'est pas chargée.
+  ttf_min_market_cap_eur: 1000000000
+
+# Univers de backtest défini par des règles à chaque date (sans biais du survivant
+# à condition que la base de prix inclue les délistés).
+market:
+  # Taux de repli (1 unité = x USD), utilisés UNIQUEMENT pour les seuils de liquidité quand
+  # aucun taux de change n'est disponible dans les données (symboles « EURUSD.FX »…).
+  # Ce sont des approximations, à mettre à jour ; elles sont signalées dans le rapport.
+  fx_fallback_to_usd: {USD: 1.0, EUR: 1.10, GBP: 1.30, CHF: 1.20, SEK: 0.10, DKK: 0.15,
+                       NOK: 0.095, PLN: 0.27, JPY: 0.0068, CAD: 0.73}
+
+backtest_universe:
+  US: {top_n: 1000, min_price_usd: 3.0, min_adv_usd: 1000000}
+  EU: {top_n: 600, min_price_usd: 1.0, min_adv_usd: 1000000}
+
+books:
+  S:
+    label: "Swing (1 à 8 semaines)"
+    horizon_days: 25
+    rebalance: weekly
+    top_n_long: 15
+    top_n_short: 10
+  M:
+    label: "Moyen terme (3 à 12 mois)"
+    horizon_days: 126
+    rebalance: monthly
+    top_n_long: 20
+    top_n_short: 10
+  L:
+    label: "Long terme (5 ans et plus)"
+    horizon_days: 1260
+    rebalance: quarterly
+    top_n_long: 20
+    top_n_short: 0
+
+scoring:
+  winsor_lower: 0.01
+  winsor_upper: 0.99
+  min_group_size: 15            # en dessous : repli secteur mondial, puis région
+  z_clip: 3.0
+  min_module_coverage: 0.6      # part minimale de signaux disponibles dans une famille
+  # Statuts de signaux entrant dans le score. En Phase 1, les signaux « core_candidate »
+  # (pré-enregistrés, issus de la littérature) sont inclus et signalés comme non validés en interne.
+  statuses_in_score: [core_validated, core_candidate]
+
+penalties:
+  liquidity_soft_multiple: 2.0  # volume entre 1x et 2x le minimum → pénalité
+  liquidity_soft: 0.25
+  beneish_threshold: -1.78      # version à 8 variables (Beneish 1999)
+  beneish: 0.5
+  altman_distress: {S: 0.25, M: 0.5, L: 0.75}
+  binary_event_days: 3          # publication de résultats dans N séances
+  binary_event: {S: 0.3, M: 0.0, L: 0.0}
+
+fundamentals:
+  max_statement_age_days: 460   # au-delà, les états financiers sont jugés périmés
+  financial_sectors: [Financials, Real Estate]
+  # Z-Score d'Altman original (industriels) pour ces secteurs US ; Z'' ailleurs.
+  altman_original_sectors: [Industrials, Materials, Energy, Consumer Staples,
+                            Consumer Discretionary]
+
+journal:
+  reference_price: next_open
+  eval_horizons_days: [5, 21, 63, 126, 252]
+
+snapshots:
+  consensus: {enabled: true, max_symbols: 600, pause_seconds: 0.5}
+  options: {enabled: true, max_symbols: 150, pause_seconds: 1.0}

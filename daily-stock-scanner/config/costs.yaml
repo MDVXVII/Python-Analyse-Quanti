@@ -1,0 +1,26 @@
+# Modèle de coûts de transaction (backtest et suivi).
+# Les valeurs de courtage sont des hypothèses à remplacer par la grille de ton courtier.
+
+commission_bps:            # par transaction, en points de base
+  US: 5
+  EU: 10
+  EM: 20
+
+# Demi-spread estimé par tranche de liquidité (volume quotidien médian en USD).
+half_spread_bps:
+  - {min_adv_usd: 50000000, bps: 2}
+  - {min_adv_usd: 10000000, bps: 5}
+  - {min_adv_usd: 2000000, bps: 12}
+  - {min_adv_usd: 0, bps: 30}
+
+# Taxes à l'achat, par pays du siège (points de base).
+#  FR : TTF 0,4 % depuis le 01/04/2025, sociétés > 1 Md€ (drapeau ttf_applicable)
+#  IT : ITF 0,1 % (marchés réglementés) ; ES : 0,2 % (sociétés > 1 Md€) ; GB : stamp duty 0,5 %
+buy_taxes_bps:
+  FR: 40
+  IT: 10
+  ES: 20
+  GB: 50
+
+short_borrow_bps_per_year: 50   # hypothèse pour le livre short papier (titres faciles à emprunter)
+delisting_return: 0.0           # rendement appliqué à la sortie de cote (analyse de sensibilité possible)

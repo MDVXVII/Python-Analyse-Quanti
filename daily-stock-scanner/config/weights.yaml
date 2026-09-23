@@ -1,0 +1,28 @@
+# Pondérations des familles de signaux par livre.
+# Règle (research_notes.md §1.5) : équipondération par défaut ; toute modification exige
+# une preuve hors échantillon et une entrée dans le changelog ci-dessous.
+
+version: 1
+changelog:
+  - date: "2026-09-23"
+    change: >
+      Pondérations initiales : équipondération des familles dans chaque livre
+      (prior 1/N, DeMiguel, Garlappi & Uppal 2009). Aucune optimisation.
+    evidence: "aucune (a priori littérature)"
+
+books:
+  S:
+    momentum_short: 1.0
+    earnings: 1.0
+    volume: 1.0
+  M:
+    value: 1.0
+    quality: 1.0
+    momentum: 1.0
+    low_risk: 1.0
+    investment: 1.0
+  L:
+    quality: 1.0
+    safety: 1.0
+    value: 1.0
+    low_risk: 1.0
