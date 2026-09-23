@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import subprocess
 from dataclasses import dataclass, field
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -104,7 +104,7 @@ def run_daily(
     securities = store.read_securities()
     ccys = sorted({str(c) for c in securities["currency"].dropna()} - {"USD"})
     data = store.load(
-        symbols + [fx_symbol(c) for c in ccys], start=run_date.replace(year=run_date.year - 5)
+        symbols + [fx_symbol(c) for c in ccys], start=run_date - timedelta(days=5 * 365 + 2)
     )
     view = PitView(data, as_of)
 

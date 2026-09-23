@@ -20,7 +20,11 @@ from scanner.core.config import AppConfig, Secrets
 from scanner.core.logging import get_logger
 from scanner.core.symbols import default_country, default_currency, split
 from scanner.data.providers.base import ProviderError
-from scanner.data.providers.constituents import LocalCsvConstituents, WikipediaConstituents
+from scanner.data.providers.constituents import (
+    LocalCsvConstituents,
+    WikipediaConstituents,
+    wikimedia_user_agent,
+)
 from scanner.data.providers.eodhd import EodhdProvider
 from scanner.data.providers.finnhub import FinnhubProvider
 from scanner.data.providers.sec_edgar import SecEdgarProvider
@@ -94,7 +98,7 @@ def build_providers(config: AppConfig, secrets: Secrets) -> Providers:
         elif name == "local_csv":
             chain.append(LocalCsvConstituents(config.config_dir / "universe"))
         elif name == "wikipedia":
-            chain.append(WikipediaConstituents())
+            chain.append(WikipediaConstituents(wikimedia_user_agent(secrets.sec_user_agent)))
     return Providers(sec=sec, yfinance=yf, eodhd=eod, finnhub=fh, constituents=chain, status=status)
 
 

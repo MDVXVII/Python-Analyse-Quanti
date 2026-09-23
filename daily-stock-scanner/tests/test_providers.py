@@ -388,6 +388,13 @@ def test_local_csv_constituents(tmp_path):
     assert LocalCsvConstituents(tmp_path).get_constituents("SBF120") == ["MC.PA", "OR.PA"]
 
 
+def test_wikimedia_user_agent_has_contact():
+    from scanner.data.providers.constituents import wikimedia_user_agent
+
+    assert "github.com" in wikimedia_user_agent()
+    assert wikimedia_user_agent("Jean Dupont jean@exemple.fr").endswith("contact: jean@exemple.fr")
+
+
 def test_wikipedia_table_parsing():
     rows = "".join(f"<tr><td>T{i}</td><td>Name {i}</td></tr>" for i in range(100))
     html = (

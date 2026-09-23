@@ -26,9 +26,10 @@ def test_yfinance_prices_real():
 
 
 def test_wikipedia_sp500_real():
-    from scanner.data.providers.constituents import WikipediaConstituents
+    from scanner.data.providers.constituents import WikipediaConstituents, wikimedia_user_agent
 
-    syms = WikipediaConstituents().get_constituents("SP500")
+    ua = wikimedia_user_agent(os.environ.get("SEC_USER_AGENT"))
+    syms = WikipediaConstituents(ua).get_constituents("SP500")
     assert 490 <= len(syms) <= 510 and "AAPL.US" in syms
 
 

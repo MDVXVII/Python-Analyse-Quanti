@@ -60,11 +60,26 @@ def parse_wikipedia_table(html: str) -> list[str]:
     raise ProviderError("aucun tableau de composition exploitable trouvé")
 
 
+DEFAULT_USER_AGENT = (
+    "daily-stock-scanner/0.1 (https://github.com/MDVXVII/Python-Analyse-Quanti) python-httpx"
+)
+
+
+def wikimedia_user_agent(contact: str | None = None) -> str:
+    """User-Agent conforme à la politique Wikimedia : nom de l'outil + moyen de contact.
+
+    Sans contact identifiable, Wikipédia répond 403 (constaté sur GitHub Actions).
+    ``contact`` peut être la valeur de ``SEC_USER_AGENT`` (« Nom email »).
+    """
+    email = next((t for t in (contact or "").split() if "@" in t), None)
+    return DEFAULT_USER_AGENT + (f" contact: {email}" if email else "")
+
+
 class WikipediaConstituents:
     name = "wikipedia"
 
-    def __init__(self, user_agent: str = "daily-stock-scanner (projet personnel)") -> None:
-        self.user_agent = user_agent
+    def __init__(self, user_agent: str | None = None) -> None:
+        self.user_agent = user_agent or wikimedia_user_agent()
 
     def get_constituents(self, index_id: str) -> list[str]:
         url = WIKIPEDIA_PAGES.get(index_id)
