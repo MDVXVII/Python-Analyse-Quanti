@@ -127,7 +127,10 @@ validé est exactement ce qui est utilisé.
 
 ## Limites connues
 
-1. **Aucune exécution sur données réelles n'a encore eu lieu.** L'environnement de développement bloquait l'accès réseau à la SEC, Yahoo, EODHD et Finnhub. Les parseurs sont testés sur des réponses **simulées**, conformes à la documentation ; le job `network-smoke` les vérifiera sur les vraies API.
+1. **Pas encore d'exécution complète sur données réelles.** L'environnement de développement bloquait l'accès réseau. Les parseurs sont testés sur des réponses simulées. Le job `network-smoke` de la CI les a ensuite confrontés aux vraies API :
+   - **yfinance** (prix d'AAPL et de LVMH) et **Wikipédia** (composition du S&P 500) : **OK** sur réponses réelles ;
+   - **SEC** : en attente du secret `SEC_USER_AGENT` ;
+   - **EODHD** et **Finnhub** : non testés (pas de clé).
 2. **Aucun signal n'est encore validé par nos propres données.** Tous les signaux du score sont des « candidats » issus de la littérature, équipondérés a priori, et le rapport quotidien le dit. Le rapport de validation réel viendra avec les données.
 3. **Mode gratuit (sans EODHD)** :
    - pas de délistés, donc un backtest biaisé à la hausse ;
@@ -157,7 +160,8 @@ Vérifié par les tests automatisés, hors ligne :
 
 ### Ce qui ne fonctionne pas encore, ou n'est pas vérifié
 
-- Aucune exécution sur données réelles, et donc aucun rapport de validation réel (voir « Limites connues », points 1 et 2).
+- Pas d'exécution complète sur données réelles, donc aucun rapport de validation réel (voir « Limites connues », points 1 et 2).
+- Le premier passage du job réseau a trouvé un vrai défaut : Wikipédia refusait (403) un User-Agent sans contact. Il est corrigé et vérifié.
 - Le provider EODHD n'a jamais reçu de vraie réponse. Ses codes d'indices pour le STOXX 600 et le SBF 120 sont à confirmer.
 - Performance : environ 1 à 2 s par date de décision pour 160 titres. Une validation US complète (1 000 titres × 15 ans) prendra de l'ordre de 20 à 40 minutes. C'est acceptable pour un travail ponctuel, à optimiser si besoin.
 
